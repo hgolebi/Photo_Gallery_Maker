@@ -24,18 +24,24 @@ class MainWindow(QtWidgets.QMainWindow):
         ]
         self.ui.enterButton.clicked.connect(lambda: self._search())
 
-    def _getPhoto(self, keyword):
-        response = requests.get(url.format(KEYWORD=keyword))
-        img_bytes = BytesIO(response.content)
-        return img_bytes
+    # def _getPhoto(self, keyword):
+    #     response = requests.get(url.format(KEYWORD=keyword))
+    #     img_bytes = BytesIO(response.content)
+    #     return img_bytes
 
     def _search(self):
         text = self.ui.writeKeyword.text()
-        for i in range(0, 6):
+        for img in self.ui._imgList:
             pixmapa = QtGui.QPixmap()
-            img_bytes = self._getPhoto(text)
+            response = requests.get(url.format(KEYWORD=text))
+            if img is self.ui.img1:
+                prev_response_url = ''
+            while prev_response_url == response.url:
+                response = requests.get(url.format(KEYWORD=text))
+            img_bytes = BytesIO(response.content)
             pixmapa.loadFromData(img_bytes.getvalue())
-            self.ui._imgList[i].setPixmap(pixmapa)
+            img.setPixmap(pixmapa)
+            prev_response_url = response.url
         self.ui.stackedWidget.setCurrentIndex(1)
 
 
