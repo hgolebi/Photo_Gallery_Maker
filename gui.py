@@ -14,16 +14,28 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self.ui.stackedWidget.setCurrentIndex(0)
+        self.ui._imgList = [
+            self.ui.img1,
+            self.ui.img2,
+            self.ui.img3,
+            self.ui.img4,
+            self.ui.img5,
+            self.ui.img6,
+        ]
         self.ui.enterButton.clicked.connect(lambda: self._search())
 
+    def _getPhoto(self, keyword):
+        response = requests.get(url.format(KEYWORD=keyword))
+        img_bytes = BytesIO(response.content)
+        return img_bytes
 
     def _search(self):
-        pixmapa = QtGui.QPixmap()
         text = self.ui.writeKeyword.text()
-        response = requests.get(url.format(KEYWORD=text))
-        img_bytes = BytesIO(response.content)
-        pixmapa.loadFromData(img_bytes.getvalue())
-        self.ui.zdjecie.setPixmap(pixmapa)
+        for i in range(0, 6):
+            pixmapa = QtGui.QPixmap()
+            img_bytes = self._getPhoto(text)
+            pixmapa.loadFromData(img_bytes.getvalue())
+            self.ui._imgList[i].setPixmap(pixmapa)
         self.ui.stackedWidget.setCurrentIndex(1)
 
 
