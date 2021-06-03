@@ -3,7 +3,7 @@ from PhotoGalleryMaker import Ui_MainWindow
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 import requests
-from PIL import Image
+from PIL import Image, ImageFilter
 import sys
 
 url = 'https://source.unsplash.com/featured/?{KEYWORD}'
@@ -29,6 +29,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.rightButton.clicked.connect(lambda: self._swipeRight())
         self.ui.rotLeftButton.clicked.connect(lambda: self._rotate("L"))
         self.ui.rotRightButton.clicked.connect(lambda: self._rotate("R"))
+        self.ui.blurredBox.stateChanged.connect(lambda: self._changeBlur())
 
     def _search(self):
         text = self.ui.writeKeyword.text()
@@ -41,6 +42,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 response = requests.get(url.format(KEYWORD=text))
             img_bytes = BytesIO(response.content)
             img.PIL_image = Image.open(img_bytes)
+            img.orginal_PIL_image = img.PIL_image
+            img.angle = 0
             pixmap.loadFromData(img_bytes.getvalue())
             height = pixmap.height()
             pixmap = pixmap.scaledToHeight(min(800, height))
@@ -68,12 +71,30 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _rotate(self, direction):
         image = self.ui._imgList[self.ui._displayedImg]
+
         if direction == "L":
             image.PIL_image = image.PIL_image.rotate(90, expand=1)
+            image.angle += 90
         elif direction == "R":
             image.PIL_image = image.PIL_image.rotate(-90, expand=1)
+            image.angle -= 90
         else:
             raise ValueError("Direction has to be 'L' or 'R'")
+        img_bytes = BytesIO()
+        image.PIL_image.save(img_bytes, format='PNG')
+        pixmap = QtGui.QPixmap()
+        pixmap.loadFromData(img_bytes.getvalue())
+        height = pixmap.height()
+        pixmap = pixmap.scaledToHeight(min(800, height))
+        image.setPixmap(pixmap)
+
+    def _changeBlur(self):
+        is_checked = self.ui.blurredBox.isChecked()
+        image = self.ui._imgList[self.ui._displayedImg]
+        if is_checked is True:
+            image.PIL_image = image.PIL_image.filter(ImageFilter.GaussianBlur(4))
+        else:
+            image.PIL_image = image.orginal_PIL_image.rotate(image.angle)
         img_bytes = BytesIO()
         image.PIL_image.save(img_bytes, format='PNG')
         pixmap = QtGui.QPixmap()
