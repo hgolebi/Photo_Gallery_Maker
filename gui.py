@@ -2,6 +2,7 @@ from io import BytesIO
 from PhotoGalleryMaker import Ui_MainWindow
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+import os
 import requests
 from PIL import Image, ImageFilter
 import sys
@@ -23,14 +24,26 @@ class MainWindow(QtWidgets.QMainWindow):
             self.ui.img5,
             self.ui.img6,
         ]
-        self.ui._displayedImg = None
+        self.ui._collageList = [
+            self.ui.collageImg1,
+            self.ui.collageImg2,
+            self.ui.collageImg3,
+            self.ui.collageImg4,
+            self.ui.collageImg5,
+            self.ui.collageImg6,
+        ]
         self.ui.enterButton.clicked.connect(lambda: self._search())
         self.ui.leftButton.clicked.connect(lambda: self._swipeLeft())
         self.ui.rightButton.clicked.connect(lambda: self._swipeRight())
         self.ui.rotLeftButton.clicked.connect(lambda: self._rotate("L"))
         self.ui.rotRightButton.clicked.connect(lambda: self._rotate("R"))
-        self.ui.blurredBox.stateChanged.connect(lambda: self._changeBlur())
-        self.ui.black_whiteBox.stateChanged.connect(lambda: self._changeBlackAndWhite())
+        self.ui.blurredBox.stateChanged.connect(lambda: self._Blur())
+        self.ui.black_whiteBox.stateChanged.connect(lambda: self._BlackAndWhite())
+        self.ui.saveButton.clicked.connect(lambda: self._saveImage())
+        self.ui.collageButton.clicked.connect(lambda: self._createCollage())
+        self.ui.returnButton.clicked.connect(lambda: self._setPage(2))
+        self.ui.backButton.clicked.connect(lambda: self._setPage(0))
+        self.ui.galleryButton.clicked.connect(lambda: self._setPage(2))
 
     def _search(self):
         text = self.ui.writeKeyword.text()
@@ -54,7 +67,10 @@ class MainWindow(QtWidgets.QMainWindow):
             prev_response_url = response.url
         self.ui.imgStack.setCurrentIndex(0)
         self.ui._displayedImg = 0
+        self.ui.blurredBox.setCheckState(QtCore.Qt.CheckState.Unchecked)
+        self.ui.black_whiteBox.setCheckState(QtCore.Qt.CheckState.Unchecked)
         self.ui.stackedWidget.setCurrentIndex(2)
+        self.ui.galleryButton.setEnabled(True)
 
     def _setCheckboxes(self):
         if self.ui._imgList[self.ui._displayedImg].is_Blurred:
@@ -104,7 +120,7 @@ class MainWindow(QtWidgets.QMainWindow):
         pixmap = pixmap.scaledToHeight(min(800, height))
         image.setPixmap(pixmap)
 
-    def _changeBlur(self, ):
+    def _Blur(self):
         is_checked = self.ui.blurredBox.isChecked()
         image = self.ui._imgList[self.ui._displayedImg]
         if is_checked is True:
@@ -125,7 +141,7 @@ class MainWindow(QtWidgets.QMainWindow):
         pixmap = pixmap.scaledToHeight(min(800, height))
         image.setPixmap(pixmap)
 
-    def _changeBlackAndWhite(self):
+    def _BlackAndWhite(self):
         is_checked = self.ui.black_whiteBox.isChecked()
         image = self.ui._imgList[self.ui._displayedImg]
         if is_checked is True:
@@ -143,6 +159,31 @@ class MainWindow(QtWidgets.QMainWindow):
         height = pixmap.height()
         pixmap = pixmap.scaledToHeight(min(800, height))
         image.setPixmap(pixmap)
+
+    def _saveImage(self):
+        dir_name = self.ui.writeKeyword.text() + "_gallery"
+        if dir_name not in os.listdir('.'):
+            os.mkdir(dir_name)
+        img_count = len(os.listdir('.\\' + dir_name))
+        image = self.ui._imgList[self.ui._displayedImg]
+        img_name = image.objectName()
+        image.PIL_image.save(f'.\\{dir_name}\\img{img_count + 1}.png')
+
+    def _createCollage(self):
+        self.ui.stackedWidget.setCurrentIndex(3)
+        index = 0
+        for img in self.ui._imgList:
+            img_bytes = BytesIO()
+            img.PIL_image.save(img_bytes, format='PNG')
+            pixmap = QtGui.QPixmap()
+            pixmap.loadFromData(img_bytes.getvalue())
+            pixmap = pixmap.scaledToHeight(400)
+            self.ui._collageList[index].setPixmap(pixmap)
+            index += 1
+
+    def _setPage(self, page):
+        self.ui.stackedWidget.setCurrentIndex(page)
+
 
 
 def guiMain(args):
