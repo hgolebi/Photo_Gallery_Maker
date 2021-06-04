@@ -30,6 +30,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.rotLeftButton.clicked.connect(lambda: self._rotate("L"))
         self.ui.rotRightButton.clicked.connect(lambda: self._rotate("R"))
         self.ui.blurredBox.stateChanged.connect(lambda: self._changeBlur())
+        self.ui.black_whiteBox.stateChanged.connect(lambda: self._changeBlackAndWhite())
 
     def _search(self):
         text = self.ui.writeKeyword.text()
@@ -44,6 +45,8 @@ class MainWindow(QtWidgets.QMainWindow):
             img.PIL_image = Image.open(img_bytes)
             img.orginal_PIL_image = img.PIL_image
             img.angle = 0
+            img.is_Blurred = False
+            img.is_BlackAndWhite = False
             pixmap.loadFromData(img_bytes.getvalue())
             height = pixmap.height()
             pixmap = pixmap.scaledToHeight(min(800, height))
@@ -53,6 +56,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui._displayedImg = 0
         self.ui.stackedWidget.setCurrentIndex(2)
 
+    def _setCheckboxes(self):
+        if self.ui._imgList[self.ui._displayedImg].is_Blurred:
+            self.ui.blurredBox.setCheckState(QtCore.Qt.CheckState.Checked)
+        else:
+            self.ui.blurredBox.setCheckState(QtCore.Qt.CheckState.Unchecked)
+
+        if self.ui._imgList[self.ui._displayedImg].is_BlackAndWhite:
+            self.ui.black_whiteBox.setCheckState(QtCore.Qt.CheckState.Checked)
+        else:
+            self.ui.black_whiteBox.setCheckState(QtCore.Qt.CheckState.Unchecked)
+
     def _swipeLeft(self):
         if self.ui._displayedImg == 0:
             return
@@ -60,6 +74,7 @@ class MainWindow(QtWidgets.QMainWindow):
             current_page = self.ui._displayedImg
             self.ui.imgStack.setCurrentIndex(current_page - 1)
             self.ui._displayedImg -= 1
+            self._setCheckboxes()
 
     def _swipeRight(self):
         if self.ui._displayedImg == 5:
@@ -68,6 +83,7 @@ class MainWindow(QtWidgets.QMainWindow):
             current_page = self.ui._displayedImg
             self.ui.imgStack.setCurrentIndex(current_page + 1)
             self.ui._displayedImg += 1
+            self._setCheckboxes()
 
     def _rotate(self, direction):
         image = self.ui._imgList[self.ui._displayedImg]
@@ -88,13 +104,38 @@ class MainWindow(QtWidgets.QMainWindow):
         pixmap = pixmap.scaledToHeight(min(800, height))
         image.setPixmap(pixmap)
 
-    def _changeBlur(self):
+    def _changeBlur(self, ):
         is_checked = self.ui.blurredBox.isChecked()
         image = self.ui._imgList[self.ui._displayedImg]
         if is_checked is True:
+            image.is_Blurred = True
             image.PIL_image = image.PIL_image.filter(ImageFilter.GaussianBlur(4))
+
         else:
-            image.PIL_image = image.orginal_PIL_image.rotate(image.angle)
+            image.is_Blurred = False
+            image.PIL_image = image.orginal_PIL_image.rotate(image.angle, expand=1)
+            if image.is_BlackAndWhite:
+                image.PIL_image = image.PIL_image.convert("L")
+
+        img_bytes = BytesIO()
+        image.PIL_image.save(img_bytes, format='PNG')
+        pixmap = QtGui.QPixmap()
+        pixmap.loadFromData(img_bytes.getvalue())
+        height = pixmap.height()
+        pixmap = pixmap.scaledToHeight(min(800, height))
+        image.setPixmap(pixmap)
+
+    def _changeBlackAndWhite(self):
+        is_checked = self.ui.black_whiteBox.isChecked()
+        image = self.ui._imgList[self.ui._displayedImg]
+        if is_checked is True:
+            image.is_BlackAndWhite = True
+            image.PIL_image = image.PIL_image.convert("L")
+        else:
+            image.is_BlackAndWhite = False
+            image.PIL_image = image.orginal_PIL_image.rotate(image.angle, expand=1)
+            if image.is_Blurred:
+                image.PIL_image = image.PIL_image.filter(ImageFilter.GaussianBlur(4))
         img_bytes = BytesIO()
         image.PIL_image.save(img_bytes, format='PNG')
         pixmap = QtGui.QPixmap()
