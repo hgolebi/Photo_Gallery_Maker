@@ -1,7 +1,6 @@
 from io import BytesIO
 from PhotoGalleryMaker import Ui_MainWindow
 from PyQt5 import QtCore, QtGui, QtWidgets
-
 import os
 import requests
 from PIL import Image, ImageFilter
@@ -35,7 +34,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.ui.collageImg5,
             self.ui.collageImg6,
         ]
+        self.ui.wrongKeywordMessege.setVisible(False)
         self.ui.enterButton.clicked.connect(lambda: self._search())
+        self.ui.writeKeyword.textChanged.connect(lambda: self._displayMessage(False))
         self.ui.leftButton.clicked.connect(lambda: self._swipeLeft())
         self.ui.rightButton.clicked.connect(lambda: self._swipeRight())
         self.ui.rotLeftButton.clicked.connect(lambda: self._rotate("L"))
@@ -54,9 +55,13 @@ class MainWindow(QtWidgets.QMainWindow):
         Unsplash API, sets them as QPixmap and ataches to QLabel objects
         '''
         text = self.ui.writeKeyword.text()
+        self.ui.wrongKeywordMessege.setVisible(False)
         for img in self.ui._imgList:
             # Getting image data through https
             response = requests.get(url.format(KEYWORD=text))
+            if 'source-404' in response.url:
+                self._displayMessage(True)
+                return
             if img is self.ui.img1:
                 prev_response_url = ''
             # While loop prevents getting same images 2 or more times in a row.
@@ -97,6 +102,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.stackedWidget.setCurrentIndex(2)
         # Setting 'To Gallery' button to work after first search
         self.ui.galleryButton.setEnabled(True)
+
+    def _displayMessage(self, bool):
+        self.ui.wrongKeywordMessege.setVisible(bool)
 
     def _setCheckboxes(self):
         ''' Function that adjusts checkboxes to the state of image
@@ -139,7 +147,7 @@ class MainWindow(QtWidgets.QMainWindow):
         ''' Fuction that rotates images. First it modifies the Pillow Image
         object and then it turns it into QPixmap that is loaded into QLabel.
 
-        :param direction: 'L' - left, 'R' right
+        :param direction: 'L' - left, 'R' - right
         '''
         image = self.ui._imgList[self.ui._displayedImg]
 
@@ -211,14 +219,29 @@ class MainWindow(QtWidgets.QMainWindow):
         image.setPixmap(pixmap)
 
     def _saveImage(self):
+        ''' Function that saves image on users driver.
+            Creates a folder named {keyword}_gallery in source directory.
+        Then it saves currently displayed image in this folder.
+        Names of saved images are just "img" with a number based on
+        number of images in the folder.
+        '''
         dir_name = self.ui.writeKeyword.text() + "_gallery"
+        # checking if folder already exists, if not, creating a new folder
         if dir_name not in os.listdir('.'):
             os.mkdir(dir_name)
+        # checking how many images are already in the folder
         img_count = len(os.listdir('.\\' + dir_name))
         image = self.ui._imgList[self.ui._displayedImg]
         image.PIL_image.save(f'.\\{dir_name}\\img{img_count + 1}.png')
 
     def _createCollage(self):
+        ''' Function that creates and displayes collage of all 6 images.
+        Any transformations made on pictures, such as rotation or filters, are
+        saved and displayed on the collage.
+            Collage is made out of 2 rows, 3 images each. Height of every
+        image is set to 400 pixels. Horizontal distances between images are
+        being split evenly.
+        '''
         self.ui.stackedWidget.setCurrentIndex(3)
         index = 0
         for img in self.ui._imgList:
