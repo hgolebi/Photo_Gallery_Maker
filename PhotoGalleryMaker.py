@@ -9,12 +9,31 @@ import sys
 url = 'https://source.unsplash.com/featured/?{KEYWORD}'
 
 
+def sortPixmaps(labelList):
+    sortedPixmaps = {
+        'vertical': [],
+        'square': [],
+        'horizontal': []
+    }
+    for label in labelList:
+        pixmap = label.pixmap()
+        ratio = pixmap.width() / pixmap.height()
+        if ratio < 0.7:
+            sortedPixmaps['vertical'].append(pixmap)
+        elif ratio > 1.3:
+            sortedPixmaps['horizontal'].append(pixmap)
+        else:
+            sortedPixmaps['square'].append(pixmap)
+    return sortedPixmaps
+
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
         # Ui_MainWindow() is a class generated from ui file created in QtDesigner app
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
+        self.showMaximized()
         self.ui.stackedWidget.setCurrentIndex(0)
         # lists of QLabel objects to enable iteration,
         # imgList is a list of QLabel objects in gallery
@@ -30,11 +49,11 @@ class MainWindow(QtWidgets.QMainWindow):
         # collageList is a list of QLabel objects in collage
         self.ui._collageList = [
             self.ui.collageImg1,
-            self.ui.collageImg2,
-            self.ui.collageImg3,
-            self.ui.collageImg4,
-            self.ui.collageImg5,
             self.ui.collageImg6,
+            self.ui.collageImg5,
+            self.ui.collageImg2,
+            self.ui.collageImg4,
+            self.ui.collageImg3,
         ]
         self.ui.wrongKeywordMessege.setVisible(False)
 
@@ -48,7 +67,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.black_whiteBox.stateChanged.connect(lambda: self._BlackAndWhite())
         self.ui.saveButton.clicked.connect(lambda: self._saveImage())
         self.ui.collageButton.clicked.connect(lambda: self._createCollage())
-        self.ui.returnButton.clicked.connect(lambda: self._setPage(1))
         self.ui.backButton.clicked.connect(lambda: self._setPage(0))
         self.ui.galleryButton.clicked.connect(lambda: self._setPage(1))
 
@@ -245,20 +263,45 @@ class MainWindow(QtWidgets.QMainWindow):
         ''' Function that creates and displayes collage of all 6 images.
         Any transformations made on pictures, such as rotation or filters, are
         saved and displayed on the collage.
-            Collage is made out of 2 rows, 3 images each. Height of every
-        image is set to 400 pixels. Horizontal distances between images are
-        being split evenly.
+        Collage is made out of 2 rows, 3 images each.
+
+        img1             img2               img3
+
+        img4             img5               img6
+
+        Height of every image is set to 400.
+        Algorithm sorts images into 3 categories:
+
+        'vertical' - image width to height ratio is 0.7 or lower
+        'square' - image widht to height ratio is between 0.7 and 1.3
+        'horizontal' - image width to height ratio is 1.3 or higher
+
+        Then, algorithm starts setting images to QLabels in a specific order:
+        img1 > img6 > img5 > img2 > img4 > img3
+
+        Algorithm tries to attach an image from 'vertical', if there are no
+        images in this category it tries to attach 'square' image and if
+        this category is also empty, it picks 'horizontal' image.
         '''
         self.ui.stackedWidget.setCurrentIndex(2)
-        index = 0
-        for img in self.ui._imgList:
-            img_bytes = BytesIO()
-            img.PIL_image.save(img_bytes, format='PNG')
-            pixmap = QtGui.QPixmap()
-            pixmap.loadFromData(img_bytes.getvalue())
-            pixmap = pixmap.scaledToHeight(400)
-            self.ui._collageList[index].setPixmap(pixmap)
-            index += 1
+
+        dict = sortPixmaps(self.ui._imgList)
+        for label in self.ui._collageList:
+            if dict['vertical']:
+                pixmap = dict['vertical'].pop(-1)
+            elif dict['square']:
+                pixmap = dict['square'].pop(-1)
+            else:
+                pixmap = dict['horizontal'].pop(-1)
+            label.setPixmap(pixmap.scaledToHeight(400))
+        self.showFullScreen()
+
+
+    def keyPressEvent(self, event):
+        if event.key() == 16777216:    # Esc button
+            if self.ui.stackedWidget.currentIndex() == 2:
+                self.ui.stackedWidget.setCurrentIndex(1)
+                self.showMaximized()
 
     def _setPage(self, page):
         self.ui.stackedWidget.setCurrentIndex(page)
