@@ -10,6 +10,15 @@ url = 'https://source.unsplash.com/featured/?{KEYWORD}'
 
 
 def sortPixmaps(labelList):
+    ''' Function that sorts images represented by QPixmap objects
+    attached to QLabels given in labelList
+
+    'vertical' - image width to height ratio is 0.7 or lower
+    'square' - image widht to height ratio is between 0.7 and 1.3
+    'horizontal' - image width to height ratio is 1.3 or higher
+
+    :param labelList: list of QLabel objects
+    '''
     sortedPixmaps = {
         'vertical': [],
         'square': [],
@@ -18,9 +27,9 @@ def sortPixmaps(labelList):
     for label in labelList:
         pixmap = label.pixmap()
         ratio = pixmap.width() / pixmap.height()
-        if ratio < 0.7:
+        if ratio <= 0.7:
             sortedPixmaps['vertical'].append(pixmap)
-        elif ratio > 1.3:
+        elif ratio >= 1.3:
             sortedPixmaps['horizontal'].append(pixmap)
         else:
             sortedPixmaps['square'].append(pixmap)
@@ -56,9 +65,11 @@ class MainWindow(QtWidgets.QMainWindow):
             self.ui.collageImg3,
         ]
         self.ui.wrongKeywordMessege.setVisible(False)
-
-        self.ui.enterButton.clicked.connect(lambda: self._search())
-        self.ui.writeKeyword.textChanged.connect(lambda: self._displayMessage(False))
+        self.ui.imgSavedMessage.setVisible(False)
+        # connecting signals to certain functions
+        self.ui.writeKeyword.returnPressed.connect(lambda: self._waitingMessage())
+        self.ui.enterButton.clicked.connect(lambda: self._waitingMessage())
+        self.ui.writeKeyword.textChanged.connect(lambda: self._errorMessage(False))
         self.ui.leftButton.clicked.connect(lambda: self._swipeLeft())
         self.ui.rightButton.clicked.connect(lambda: self._swipeRight())
         self.ui.rotLeftButton.clicked.connect(lambda: self._rotate("L"))
@@ -70,18 +81,36 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.backButton.clicked.connect(lambda: self._setPage(0))
         self.ui.galleryButton.clicked.connect(lambda: self._setPage(1))
 
+    def _waitingMessage(self):
+        ''' This function switches window to waiting page that indicates
+        searching is in progress. Then it calls search() method to start
+        searching.
+            Search() is called in QTimer.singleshot() function to display
+        waiting page before search() function ends. In Qt, windows are
+        refreshed after function is finished so waiting page would be
+        displayed on screen after returning from search() function.
+        To prevent that we set QTimer for 100 miliseconds after which
+        search() function is called. By that time waiting page is already
+        set and displayed on the screen.
+        '''
+        self.ui.stackedWidget.setCurrentIndex(3)
+        QtCore.QTimer.singleShot(100, lambda: self._search())
+
     def _search(self):
         ''' Function that takes a keyword given by the user and searches for
         images that match the keyword. It downloads 6 images through
         Unsplash API, sets them as QPixmap and ataches to QLabel objects
+        that are displayed in our gallery.
         '''
         text = self.ui.writeKeyword.text()
         self.ui.wrongKeywordMessege.setVisible(False)
         for img in self.ui._imgList:
             # Getting image data through https
             response = requests.get(url.format(KEYWORD=text))
+            # When no suiting images are found API redirects us to the special
+            # page with 'source-404' in its url.
             if 'source-404' in response.url:
-                self._displayMessage(True)
+                self._errorMessage(True)
                 return
             if img is self.ui.img1:
                 prev_response_url = ''
@@ -89,7 +118,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # It doesn't prevent getting same images e.g. on 1st and 3rd place
             # but this situation is very unlikely and it helps to solve the
             # case where only 5 or less pictures suit a certain keyword.
-            while prev_response_url == response.url:
+            while prev_response_url == response.url or response.status_code != 200:
                 response = requests.get(url.format(KEYWORD=text))
             # Converting data from URL to BytesIO obcject.
             img_bytes = BytesIO(response.content)
@@ -115,7 +144,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Setting 1st image to display first.
         self.ui.imgStack.setCurrentIndex(0)
         # Atrribute that tells which image is currently displayed.
-        self.ui._displayedImg = 0
+        self.ui._currentImageIndex = 0
         # Setting checkboxes to be unchecked by default.
         self.ui.blurredBox.setCheckState(QtCore.Qt.CheckState.Unchecked)
         self.ui.black_whiteBox.setCheckState(QtCore.Qt.CheckState.Unchecked)
@@ -124,8 +153,9 @@ class MainWindow(QtWidgets.QMainWindow):
         # Setting 'To Gallery' button to work after first search
         self.ui.galleryButton.setEnabled(True)
 
-    def _displayMessage(self, bool):  # no image found message
+    def _errorMessage(self, bool):  # message is shown when no images are found
         self.ui.wrongKeywordMessege.setVisible(bool)
+        self.ui.stackedWidget.setCurrentIndex(0)
 
     def _setCheckboxes(self):
         ''' Function that adjusts checkboxes to the state of image
@@ -134,34 +164,34 @@ class MainWindow(QtWidgets.QMainWindow):
             It's nessesary to adjust this checkboxes when switching from one
         image to another.
         '''
-        if self.ui._imgList[self.ui._displayedImg].is_Blurred:
+        if self.ui._imgList[self.ui._currentImageIndex].is_Blurred:
             self.ui.blurredBox.setCheckState(QtCore.Qt.CheckState.Checked)
         else:
             self.ui.blurredBox.setCheckState(QtCore.Qt.CheckState.Unchecked)
 
-        if self.ui._imgList[self.ui._displayedImg].is_BlackAndWhite:
+        if self.ui._imgList[self.ui._currentImageIndex].is_BlackAndWhite:
             self.ui.black_whiteBox.setCheckState(QtCore.Qt.CheckState.Checked)
         else:
             self.ui.black_whiteBox.setCheckState(QtCore.Qt.CheckState.Unchecked)
 
     def _swipeLeft(self):
         ''' Function that changes displayed image to previous image. '''
-        if self.ui._displayedImg == 0:
+        if self.ui._currentImageIndex == 0:
             return
         else:
-            current_page = self.ui._displayedImg
+            current_page = self.ui._currentImageIndex
             self.ui.imgStack.setCurrentIndex(current_page - 1)
-            self.ui._displayedImg -= 1
+            self.ui._currentImageIndex -= 1
             self._setCheckboxes()
 
     def _swipeRight(self):
         ''' Function that changes displayed image to next image. '''
-        if self.ui._displayedImg == 5:
+        if self.ui._currentImageIndex == 5:
             return
         else:
-            current_page = self.ui._displayedImg
+            current_page = self.ui._currentImageIndex
             self.ui.imgStack.setCurrentIndex(current_page + 1)
-            self.ui._displayedImg += 1
+            self.ui._currentImageIndex += 1
             self._setCheckboxes()
 
     def _rotate(self, direction):
@@ -170,7 +200,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         :param direction: 'L' - left, 'R' - right
         '''
-        image = self.ui._imgList[self.ui._displayedImg]
+        image = self.ui._imgList[self.ui._currentImageIndex]
 
         if direction == "L":
             image.PIL_image = image.PIL_image.rotate(90, expand=1)
@@ -192,7 +222,7 @@ class MainWindow(QtWidgets.QMainWindow):
         object and then it turns it into QPixmap that is loaded into QLabel.
         '''
         is_checked = self.ui.blurredBox.isChecked()
-        image = self.ui._imgList[self.ui._displayedImg]
+        image = self.ui._imgList[self.ui._currentImageIndex]
         if is_checked is True:
             image.is_Blurred = True
             new_image = image.PIL_image.filter(ImageFilter.GaussianBlur(4))
@@ -222,7 +252,7 @@ class MainWindow(QtWidgets.QMainWindow):
         it into QPixmap that is loaded into QLabel.
         '''
         is_checked = self.ui.black_whiteBox.isChecked()
-        image = self.ui._imgList[self.ui._displayedImg]
+        image = self.ui._imgList[self.ui._currentImageIndex]
         if is_checked is True:
             image.is_BlackAndWhite = True
             image.PIL_image = image.PIL_image.convert("L")
@@ -256,8 +286,11 @@ class MainWindow(QtWidgets.QMainWindow):
             os.mkdir(dir_name)
         # checking how many images are already in the folder
         img_count = len(os.listdir('.\\' + dir_name))
-        image = self.ui._imgList[self.ui._displayedImg]
+        image = self.ui._imgList[self.ui._currentImageIndex]
         image.PIL_image.save(f'.\\{dir_name}\\img{img_count + 1}.png')
+        # showing "image has been saved" message for 2 seconds
+        self.ui.imgSavedMessage.show()
+        QtCore.QTimer.singleShot(2000, lambda: self.ui.imgSavedMessage.hide())
 
     def _createCollage(self):
         ''' Function that creates and displayes collage of all 6 images.
@@ -279,7 +312,7 @@ class MainWindow(QtWidgets.QMainWindow):
         Then, algorithm starts setting images to QLabels in a specific order:
         img1 > img6 > img5 > img2 > img4 > img3
 
-        Algorithm tries to attach an image from 'vertical', if there are no
+        Algorithm tries to attach a 'vertical' image, if there are no
         images in this category it tries to attach 'square' image and if
         this category is also empty, it picks 'horizontal' image.
         '''
@@ -294,16 +327,25 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 pixmap = dict['horizontal'].pop(-1)
             label.setPixmap(pixmap.scaledToHeight(400))
+        # showing window in fullscreen mode
         self.showFullScreen()
-
+        # showing "Press ESC to close fullscreen mode" message for 3 seconds
+        self.ui.popMessage.show()
+        QtCore.QTimer.singleShot(3000, lambda: self.ui.popMessage.hide())
 
     def keyPressEvent(self, event):
+        ''' This function closes fullscreen mode in collage window
+        when user presses Esc button
+        '''
         if event.key() == 16777216:    # Esc button
             if self.ui.stackedWidget.currentIndex() == 2:
                 self.ui.stackedWidget.setCurrentIndex(1)
                 self.showMaximized()
 
     def _setPage(self, page):
+        ''' Function switches pages in stackedWidget.
+        Made this function for better clarity.
+        '''
         self.ui.stackedWidget.setCurrentIndex(page)
 
 
