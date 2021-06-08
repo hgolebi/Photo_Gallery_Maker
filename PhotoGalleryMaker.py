@@ -5,6 +5,7 @@ import os
 import requests
 from PIL import Image, ImageFilter
 import sys
+from random import randrange
 
 url = 'https://source.unsplash.com/featured/?{KEYWORD}'
 
@@ -312,20 +313,24 @@ class MainWindow(QtWidgets.QMainWindow):
         Then, algorithm starts setting images to QLabels in a specific order:
         img1 > img6 > img5 > img2 > img4 > img3
 
-        Algorithm tries to attach a 'vertical' image, if there are no
+        Algorithm tries to attach a random 'vertical' image, if there are no
         images in this category it tries to attach 'square' image and if
         this category is also empty, it picks 'horizontal' image.
         '''
         self.ui.stackedWidget.setCurrentIndex(2)
 
         dict = sortPixmaps(self.ui._imgList)
+        # lists of Pixmaps
+        vert = dict['vertical']
+        sqr = dict['square']
+        hor = dict['horizontal']
         for label in self.ui._collageList:
-            if dict['vertical']:
-                pixmap = dict['vertical'].pop(-1)
-            elif dict['square']:
-                pixmap = dict['square'].pop(-1)
+            if vert:
+                pixmap = vert.pop(randrange(0, len(vert)))  # choses random element and pops it
+            elif sqr:
+                pixmap = sqr.pop(randrange(0, len(sqr)))
             else:
-                pixmap = dict['horizontal'].pop(-1)
+                pixmap = hor.pop(randrange(0, len(hor)))
             label.setPixmap(pixmap.scaledToHeight(400))
         # showing window in fullscreen mode
         self.showFullScreen()
