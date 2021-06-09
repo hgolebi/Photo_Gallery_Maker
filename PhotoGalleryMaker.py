@@ -104,7 +104,6 @@ class MainWindow(QtWidgets.QMainWindow):
         that are displayed in our gallery.
         '''
         text = self.ui.writeKeyword.text()
-        self.ui.wrongKeywordMessege.setVisible(False)
         for img in self.ui._imgList:
             # Getting image data through https
             response = requests.get(url.format(KEYWORD=text))
@@ -281,7 +280,7 @@ class MainWindow(QtWidgets.QMainWindow):
         Names of saved images are just "img" with a number based on
         number of images in the folder.
         '''
-        dir_name = self.ui.writeKeyword.text() + "_gallery"
+        dir_name = self.ui.writeKeyword.text() + " gallery"
         # checking if folder already exists, if not, creating a new folder
         if dir_name not in os.listdir('.'):
             os.mkdir(dir_name)
