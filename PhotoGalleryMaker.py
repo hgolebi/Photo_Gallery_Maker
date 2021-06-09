@@ -275,7 +275,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _saveImage(self):
         ''' Function that saves image on users driver.
-            Creates a folder named {keyword}_gallery in source directory.
+            Creates a folder named {keyword} gallery in source directory.
         Then it saves currently displayed image in this folder.
         Names of saved images are just "img" with a number based on
         number of images in the folder.
